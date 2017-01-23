@@ -1,0 +1,120 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(grid)
+library(gridExtra)
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+## Part 1: Data
+
+The data is collected using a survey of non-institutionalized adults, aged 18 years or older, who reside in the US. The survey has the questionnaire divided into 3 different parts - standard questions, optional questions, and State-added questions, where the standard questions are kept same across all participating states for inter-state comparison. 
+
+The impact of the data collection technique on generalizability and causality can be summarized below -
+
+1) Generalizability - The results can be generalized to the adult US population as adults from all 50 states are participating in this survey. Since the surveys are conducted on phone, care has been taken to include both landline and cell phones users. Further, the selection is randomized such that all users are equally likely to be sampled. The only caveat to generalizing the results would be bias occurring from people who do not respond openly about their health conditions or sick people who are not able to take the surveys.
+
+2) Causality - As the data was collected using a survey and not as a part of a controlled experiment, causality cannot be determined between any of the variables.
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:** How is smoking associated with the time you sleep and with the number of days you feel your mental health is not good?
+
+Smoking is highly prevalent in Indian cities especially among the working class who work longer shifts and in more stressed environments. This question will help us explore if smoking is correlated with any of these variables.
+
+**Research quesion 3:** Is eating healthy or exercising regularly more important to maintain a health weight
+
+People often debate which of the above two habits would help them the most. In this question we will check which factor is more strongly associated with a healthy BMI.
+
+**Research quesion 3:** How does obesity impact your chances of having diabetes and does it have different implications for different gender?
+
+According to NIDDK, about two-thirds of the US population is either overweight or obese. Obesity has many high risk factors associated with it of which diabetes is at the top. This question will help us analyze the trends and also if they change with gender.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+NOTE: Insert code chunks as needed by clicking on the "Insert a new code chunk" 
+button (green button with orange arrow) above. Make sure that your code is visible
+in the project you submit. Delete this note when before you submit your work.
+
+**Research quesion 1:**
+grep("smok",names(brfss2013),value=TRUE)
+
+```{r}
+brfss2013 %>% select(smokday2,sleptim1,menthlth) %>% summary()
+
+# univariate analysis
+
+ggplot(data=brfss2013,aes(x=smokday2)) + geom_bar(fill="blue") + ylim(0,150000) +xlab("Smoking status") + ylab(" # Respondents")
+
+ggplot(data=brfss2013,aes(x=sleptim1)) + geom_histogram(binwidth=1.0,fill="blue") +xlim(0,24) + xlab("No. of hours slept per day") + ylab(" # Respondents") + ylim(0,150000) 
+
+ggplot(data=brfss2013,aes(x=menthlth)) + geom_bar(fill="blue") +xlim(0,30) + ylim(0,30000) + xlab("No. of days mental health not good") +  ylab(" # Respondents") 
+
+
+# filter the data for plotting - remove outliers in sleeptime, missing values
+
+comp_data<- brfss2013 %>% filter(sleptim1<=20, sleptim1>=1, sleptim1!="NA", menthlth<=30, smokday2!="NA") %>%group_by(smokday2) %>% summarise(count=n(),mean_sleep=mean(sleptim1), mean_menthlth=mean(menthlth))
+
+par(mfrow = c(1,2))
+
+ggplot(data=comp_data,aes(x=smokday2,y=mean_sleep,fill=smokday2)) + geom_bar(stat="identity") +ylim(0,8) + ylab("Average  hours slept") +xlab("Smoking Status") + ggtitle("Smoking vs Hours slept") + theme(plot.title = element_text(hjust = 0.5),legend.position="none") 
+
+ggplot(data=comp_data,aes(x=smokday2,y=mean_menthlth,fill=smokday2)) + geom_bar(stat="identity") +ylim(0,10) + ylab("Average days mental health not good") +xlab("Smoking Status") + ggtitle("Smoking vs Mental health not good") + theme(plot.title = element_text(hjust = 0.5),legend.position="none") 
+
+```
+
+Summary - In this sample, people who smoke daily sleep for lesser hours and feel depressed on more number of days compared to people who do not smoke at all. However, to check if this difference is statistically significant and can be generalized for the population hypothesis testing should be done. As mentioned earlier, the data does not suggest any causation.
+
+**Research quesion 2:**
+
+```{r}
+
+
+p1<-ggplot(data=brfss2013,aes(x=exerany2, y=X_bmi5/100,fill=exerany2)) + geom_boxplot() + ggtitle("BMI vs Exercise") + theme(axis.text.x=element_blank(),axis.title.x=element_blank(),plot.title = element_text(hjust = 0.5)) + scale_fill_discrete(guide = guide_legend(title = "Exercise")) + ylab("BMI")
+
+p2<-ggplot(data=brfss2013,aes(x=X_veglt1, y=X_bmi5/100,fill=X_veglt1)) + geom_boxplot() + ggtitle("BMI vs Vegetable Diet") + theme(axis.text.x=element_blank(),axis.title.x=element_blank(),plot.title = element_text(hjust = 0.5)) + scale_fill_discrete(guide = guide_legend(title = "Daily Veg consptn > 1"), labels=c("Yes", "No","NA")) + ylab("BMI")
+
+grid.arrange(p1, p2, ncol = 2, top = "")
+
+#+ ylim(0,15) +xlab("Overweight (High BMI)") +ylab("Average veggies consumed per day") +ggtitle("Overweight vs Veggies consumed")
+
+```
+
+Summary - Both these graphs show difference in BMI between users adopting either the habit of exercising or eating a healthy vegetable diet. The difference is more highlighted in the exercise graph, however, we still cannot claim that exercising is more beneficial. To get more insights, we may need to perform an experiment which controls for other confounding variables that could lead to a reduced BMI.
+
+grep("veg",colnames(brfss2013),value=TRUE)
+
+**Research quesion 3:**
+
+```{r}
+
+diabetes<- brfss2013 %>% filter(diabete3!="Yes, but female told only during pregnancy",sex!="NA")
+
+ggplot(data=diabetes,aes(x=diabete3, y=X_bmi5/100,fill=diabete3)) + geom_boxplot()+ facet_wrap(~sex, scales = "free") + ylab("BMI") + ggtitle("BMI vs Diabetes by Gender") + theme(axis.text.x=element_blank(),axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) + scale_fill_discrete(guide = guide_legend(title = "Diabetes"))
+
+```
+
+Summary - This plot indicates that obesity is strongly associated with diabetes as less proportion of healty people (BMI < 26) are diagnosed with diabetes. Females and males both show the same trend, however, the median BMI for females in the "No diabetes" category is lower than that in males.
